@@ -30,21 +30,33 @@ class Particle {
     Vector2 m_acc { 0, 0 };
     Vector2 m_gravity { 0, 500 };
     const Color m_color;
-    static constexpr float m_radius = 50;
+    const float m_radius;
 
 public:
-    Particle(Vector2 pos, Vector2 vel, Color color)
+    Particle(Vector2 pos, Vector2 vel, Color color, float radius)
         : m_pos(pos)
         , m_vel(vel)
         , m_color(color)
+        , m_radius(radius)
     { }
 
     static Particle random() {
         std::array colors {
-            RED, BLUE, GREEN
+            LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON,
+            GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET,
+            DARKPURPLE, BEIGE, BROWN, DARKBROWN,
         };
         size_t idx = rng() * colors.size();
-        return Particle({ rng()*WIDTH, rng()*HEIGHT }, { rng(), rng() }, colors[idx]);
+        float vel_mul = 300;
+        Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
+        float rad = rng()*100;
+
+        Vector2 pos = {
+            std::max(rad, rng()*WIDTH-rad),
+            std::max(rad, rng()*HEIGHT-rad),
+        };
+
+        return Particle(pos, vel, colors[idx], rad);
     }
 
     void update(float dt) {
@@ -76,7 +88,7 @@ public:
 
             // float dist = Vector2Distance(m_pos, other.m_pos) / 2;
             auto axis = Vector2Subtract(other.m_pos, m_pos);
-            DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, PURPLE);
+            DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
 
             if (CheckCollisionCircles(m_pos, m_radius, other.m_pos, other.m_radius)) {
                 // m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Normalize(axis), dist));
@@ -94,6 +106,9 @@ public:
         assert(m_pos.y < HEIGHT);
         assert(m_pos.y > 0);
         assert(m_pos.x > 0);
+
+        // TODO: move particle back by diff, to prevent high-velocity particles
+        // from clipping when moving too fast
 
         float damp_factor = 0.95;
         bool down  = m_pos.y + m_radius >= HEIGHT;
@@ -141,21 +156,15 @@ int main() {
     SetTargetFPS(60);
     InitWindow(WIDTH, HEIGHT, "particles");
 
-    float vel = 300;
+    float vel = 3000;
 
     std::array particles {
-        // Particle({ 100, HEIGHT/2.0f }, { vel, 0 }, RED),
-        // Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE),
-        Particle::random(),
-        Particle::random(),
-        Particle::random(),
-        Particle::random(),
-        Particle::random(),
-        Particle::random(),
+        Particle({ 100, HEIGHT/2.0f }, { vel, 0 }, RED, 100),
+        // Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, 100),
     };
 
     // std::vector<Particle> particles;
-    // for (int i=0; i < 5; ++i) {
+    // for (int i=0; i < 50; ++i) {
     //     particles.push_back(Particle::random());
     // }
 
