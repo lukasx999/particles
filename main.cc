@@ -1,3 +1,4 @@
+#include <cassert>
 #include <print>
 #include <format>
 
@@ -15,7 +16,7 @@ class Particle {
     Vector2 m_pos;
     Vector2 m_vel { 0, 0 };
     Vector2 m_acc { 0, 0 };
-    Vector2 m_gravity { 0, 300 };
+    Vector2 m_gravity { 0, 500 };
     static constexpr float m_radius = 50;
 
 public:
@@ -26,17 +27,52 @@ public:
     void update(float dt) {
         m_pos = Vector2Add(m_pos, Vector2Scale(m_vel, dt));
         m_vel = Vector2Add(m_vel, Vector2Scale(m_acc, dt));
-        m_vel = Vector2Add(m_vel, Vector2Scale(m_gravity, dt));
+        // m_vel = Vector2Add(m_vel, Vector2Scale(m_gravity, dt));
     }
 
     void draw() const {
         DrawCircleV(m_pos, m_radius, BLUE);
 
         #ifdef DEBUG
-        DrawText(std::format("pos: {}, {}", m_pos.x, m_pos.y).c_str(), 0, 0, 30, WHITE);
-        DrawText(std::format("vel: {}, {}", m_vel.x, m_vel.y).c_str(), 0, 30, 30, WHITE);
-        DrawText(std::format("acc: {}, {}", m_acc.x, m_acc.y).c_str(), 0, 60, 30, WHITE);
+        float line_size = 3;
+        DrawLineEx(m_pos, Vector2Add(m_pos, m_vel), line_size, RED);
+        DrawLineEx(m_pos, Vector2Add(m_pos, m_acc), line_size, GREEN);
+        DrawLineEx(m_pos, Vector2Add(m_pos, m_gravity), line_size, PURPLE);
+        DrawText(std::format("pos: {}, {}", trunc(m_pos.x), trunc(m_pos.y)).c_str(), 0, 0, 30, WHITE);
+        DrawText(std::format("vel: {}, {}", trunc(m_vel.x), trunc(m_vel.y)).c_str(), 0, 30, 30, WHITE);
+        DrawText(std::format("acc: {}, {}", trunc(m_acc.x), trunc(m_acc.y)).c_str(), 0, 60, 30, WHITE);
         #endif // DEBUG
+    }
+
+    void resolve_collisions() {
+        assert(m_pos.x < WIDTH);
+        assert(m_pos.y < HEIGHT);
+        assert(m_pos.y > 0);
+        assert(m_pos.x > 0);
+
+        float damp_factor = 0.95;
+
+        if (m_pos.y-m_radius <= 0) {
+            m_vel.y *= -1;
+        }
+
+        if (m_pos.y+m_radius >= HEIGHT) {
+            m_vel.y *= -1;
+        }
+
+        if (m_pos.x+m_radius >= WIDTH) {
+            m_vel.x *= -damp_factor;
+            // m_acc.x *= 0.9;
+        }
+
+        if (m_pos.x-m_radius <= 0) {
+            m_vel.x *= -1;
+        }
+
+    }
+
+    void apply_force_absolute(Vector2 pos) {
+        m_acc = Vector2Subtract(pos, m_pos);
     }
 
     void apply_force(Direction dir) {
@@ -57,25 +93,6 @@ public:
         }
     }
 
-    void resolve_collisions() {
-
-        if (m_pos.y-m_radius/2.0f <= 0) {
-            m_vel.y *= -1;
-        }
-
-        if (m_pos.y+m_radius/2.0f >= HEIGHT) {
-            m_vel.y *= -1;
-        }
-
-        if (m_pos.x+m_radius/2.0f >= WIDTH) {
-            m_vel.x *= -1;
-        }
-
-        if (m_pos.x-m_radius/2.0f <= 0) {
-            m_vel.x *= -1;
-        }
-
-    }
 
 };
 
@@ -103,6 +120,9 @@ int main() {
 
             if (IsKeyPressed(KEY_DOWN))
                 p.apply_force(Direction::Down);
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                p.apply_force_absolute(GetMousePosition());
 
             p.resolve_collisions();
             p.update(GetFrameTime());
