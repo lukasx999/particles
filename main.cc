@@ -8,7 +8,7 @@
 #include <raymath.h>
 
 #undef DEBUG
-#define NO_GRAVITY
+#undef NO_GRAVITY
 
 static constexpr auto WIDTH = 1600;
 static constexpr auto HEIGHT = 900;
@@ -28,9 +28,10 @@ class Particle {
     Vector2 m_pos;
     Vector2 m_vel { 0, 0 };
     Vector2 m_acc { 0, 0 };
-    Vector2 m_gravity { 0, 500 };
+    Vector2 m_gravity { 0, 10000 };
     const Color m_color;
     const float m_radius;
+    static constexpr float m_dampen_factor = 0.50;
 
 public:
     Particle(Vector2 pos, Vector2 vel, Color color, float radius)
@@ -47,9 +48,11 @@ public:
             DARKPURPLE, BEIGE, BROWN, DARKBROWN,
         };
         size_t idx = rng() * colors.size();
-        float vel_mul = 300;
+        float vel_mul = 0;
         Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
-        float rad = rng()*100;
+        float max_rad = 10;
+        float min_rad = 10;
+        float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
 
         Vector2 pos = {
             std::max(rad, rng()*WIDTH-rad),
@@ -70,6 +73,8 @@ public:
     void draw() const {
         DrawCircleV(m_pos, m_radius, m_color);
 
+        DrawFPS(0, 0);
+
         #ifdef DEBUG
         float line_size = 3;
         DrawLineEx(m_pos, Vector2Add(m_pos, m_vel), line_size, RED);
@@ -81,47 +86,63 @@ public:
         #endif // DEBUG
     }
 
-    void resolve_collisions_others(std::span<Particle> others) {
+    void resolve_collisions_others(std::span<Particle> others, float dt) {
 
         for (auto &other : others) {
             if (&other == this) return;
 
-            // float dist = Vector2Distance(m_pos, other.m_pos) / 2;
-            auto axis = Vector2Subtract(other.m_pos, m_pos);
-            DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
+            Vector2 step = { m_vel.x * dt, m_vel.y * dt };
+            float dist = Vector2Distance(Vector2Add(m_pos, step), other.m_pos);
 
-            if (CheckCollisionCircles(m_pos, m_radius, other.m_pos, other.m_radius)) {
-                // m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Normalize(axis), dist));
-                // other.m_pos = Vector2Add(other.m_pos, Vector2Scale(axis, dist));
-                m_vel *= -1;
-                other.m_vel *= -1;
+            auto axis = Vector2Subtract(other.m_pos, m_pos);
+            auto axis_norm = Vector2Normalize(axis);
+
+            #ifdef DEBUG
+            DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
+            #endif // DEBUG
+
+            float diff = dist - m_radius - other.m_radius;
+            float delta = abs(diff) / 2.0f;
+
+            if (diff < 0) {
+                // move the particle away along the negative collision axis
+                m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Negate(axis_norm), delta));
+                other.m_pos = Vector2Add(other.m_pos, Vector2Scale(axis_norm, delta));
+
+                m_vel *= -m_dampen_factor;
+                other.m_vel *= -m_dampen_factor;
             }
 
         }
 
     }
 
-    void resolve_collisions_wall() {
-        assert(m_pos.x < WIDTH);
-        assert(m_pos.y < HEIGHT);
-        assert(m_pos.y > 0);
-        assert(m_pos.x > 0);
+    void resolve_collisions_wall(float dt) {
 
-        // TODO: move particle back by diff, to prevent high-velocity particles
-        // from clipping when moving too fast
+        Vector2 step = { m_vel.x * dt, m_vel.y * dt };
+        float down  = m_pos.y + m_radius - HEIGHT;
+        float up    = m_pos.y - m_radius;
+        float right = m_pos.x + m_radius - WIDTH;
+        float left  = m_pos.x - m_radius;
 
-        float damp_factor = 0.95;
-        bool down  = m_pos.y + m_radius >= HEIGHT;
-        bool up    = m_pos.y - m_radius <= 0;
-        bool right = m_pos.x + m_radius >= WIDTH;
-        bool left  = m_pos.x - m_radius <= 0;
-
-        if (up || down) {
-            m_vel.y *= -damp_factor;
+        if (up + step.y < 0) {
+            m_pos.y = m_radius;
+            m_vel.y *= -m_dampen_factor;
         }
 
-        if (right || left) {
-            m_vel.x *= -damp_factor;
+        if (down + step.y > 0) {
+            m_pos.y = HEIGHT - m_radius;
+            m_vel.y *= -m_dampen_factor;
+        }
+
+        if (left + step.x < 0) {
+            m_pos.x = m_radius;
+            m_vel.x *= -m_dampen_factor;
+        }
+
+        if (right + step.x > 0) {
+            m_pos.x = WIDTH - m_radius;
+            m_vel.x *= -m_dampen_factor;
         }
 
     }
@@ -153,20 +174,26 @@ public:
 int main() {
 
     SetTraceLogLevel(LOG_ERROR);
-    SetTargetFPS(60);
+    // SetTargetFPS(180);
     InitWindow(WIDTH, HEIGHT, "particles");
 
-    float vel = 3000;
+    #if 0
+    float vel = 5000;
+    float rad = 150;
 
     std::array particles {
-        Particle({ 100, HEIGHT/2.0f }, { vel, 0 }, RED, 100),
-        // Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, 100),
+        Particle({ 300, HEIGHT/2.0f }, { vel, 0 }, RED, rad),
+        Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad),
+        // Particle({ 500, HEIGHT/2.0f-300 }, { vel, vel }, RED, rad),
+        // Particle({ WIDTH-100, HEIGHT/2.0f+500 }, { -vel, vel }, BLUE, rad),
     };
-
-    // std::vector<Particle> particles;
-    // for (int i=0; i < 50; ++i) {
-    //     particles.push_back(Particle::random());
-    // }
+    #else
+    std::vector<Particle> particles;
+    int n = 1000;
+    for (int i=0; i < n; ++i) {
+        particles.push_back(Particle::random());
+    }
+    #endif
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -175,23 +202,23 @@ int main() {
 
             for (auto &p : particles) {
 
-                if (IsKeyPressed(KEY_RIGHT))
+                if (IsKeyDown(KEY_RIGHT))
                     p.apply_force(Direction::Right);
 
-                if (IsKeyPressed(KEY_LEFT))
+                if (IsKeyDown(KEY_LEFT))
                     p.apply_force(Direction::Left);
 
-                if (IsKeyPressed(KEY_UP))
+                if (IsKeyDown(KEY_UP))
                     p.apply_force(Direction::Up);
 
-                if (IsKeyPressed(KEY_DOWN))
+                if (IsKeyDown(KEY_DOWN))
                     p.apply_force(Direction::Down);
 
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
                     p.apply_force_absolute(GetMousePosition());
 
-                p.resolve_collisions_others(particles);
-                p.resolve_collisions_wall();
+                p.resolve_collisions_others(particles, GetFrameTime());
+                p.resolve_collisions_wall(GetFrameTime());
                 p.update(GetFrameTime());
                 p.draw();
             }
