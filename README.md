@@ -1,2 +1,3 @@
-# psim
-particle simulation
+# Particle Simulation
+
+![1](./image1.png)

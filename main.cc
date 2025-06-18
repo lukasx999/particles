@@ -8,7 +8,6 @@
 #include <raymath.h>
 
 #undef DEBUG
-#undef NO_GRAVITY
 
 static constexpr auto WIDTH = 1600;
 static constexpr auto HEIGHT = 900;
@@ -42,16 +41,23 @@ public:
     { }
 
     static Particle random(Vector2 pos) {
+
         std::array colors {
-            LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON,
-            GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET,
-            DARKPURPLE, BEIGE, BROWN, DARKBROWN,
+            LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, RED, MAROON,
+            BEIGE, BROWN, DARKBROWN,
         };
+
+        // std::array colors {
+        //     LIGHTGRAY, GRAY, DARKGRAY,
+        //     SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET,
+        //     DARKPURPLE
+        // };
+
         // size_t idx = rng() * colors.size();
         size_t idx = (fmod(GetTime(), 1)) * colors.size();
         float vel_mul = 0;
         Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
-        float max_rad = 20, min_rad = 20;
+        float max_rad = 10, min_rad = 10;
         float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
 
         return Particle(pos, vel, colors[idx], rad);
@@ -60,9 +66,7 @@ public:
     void update(float dt) {
         m_pos = Vector2Add(m_pos, Vector2Scale(m_vel, dt));
         m_vel = Vector2Add(m_vel, Vector2Scale(m_acc, dt));
-        #ifndef NO_GRAVITY
         m_vel = Vector2Add(m_vel, Vector2Scale(m_gravity, dt));
-        #endif // NO_GRAVITY
     }
 
     void draw() const {
@@ -103,6 +107,9 @@ public:
                 // TODO:
                 // m_vel *= -m_dampen_factor;
                 // other.m_vel *= -m_dampen_factor;
+
+                m_vel = Vector2Zero();
+                other.m_vel = Vector2Zero();
             }
 
         }
@@ -119,22 +126,41 @@ public:
 
         if (up + step.y < 0) {
             m_pos.y = m_radius;
-            m_vel.y *= -m_dampen_factor;
+            // m_vel.y *= -m_dampen_factor;
+            m_vel.y = 0;
         }
 
         if (down + step.y > 0) {
             m_pos.y = HEIGHT - m_radius;
-            m_vel.y *= -m_dampen_factor;
+            // m_vel.y *= -m_dampen_factor;
+            m_vel.y = 0;
         }
 
         if (left + step.x < 0) {
             m_pos.x = m_radius;
-            m_vel.x *= -m_dampen_factor;
+            // m_vel.x *= -m_dampen_factor;
+            m_vel.x = 0;
         }
 
         if (right + step.x > 0) {
             m_pos.x = WIDTH - m_radius;
-            m_vel.x *= -m_dampen_factor;
+            // m_vel.x *= -m_dampen_factor;
+            m_vel.x = 0;
+        }
+
+    }
+
+    void resolve_collisions_container(float dt, Vector2 center, float radius) {
+
+        auto axis = Vector2Subtract(center, m_pos);
+        float step = Vector2Length(m_vel)*dt;
+
+        // DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
+
+        auto diff = Vector2Length(axis) + m_radius + step - radius;
+        if (diff > 0) {
+            std::println("collision");
+            m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Normalize((axis)), diff));
         }
 
     }
@@ -174,21 +200,33 @@ int main() {
 
     float vel = 500;
     float rad = 150;
-    particles.push_back(Particle({ 300, HEIGHT/2.0f }, { vel, 0 }, RED, rad));
-    particles.push_back(Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad));
+    // particles.push_back(Particle({ 300, HEIGHT/2.0f }, { vel, 0 }, RED, rad));
+    // particles.push_back(Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad));
+
+    float fut = 0;
+    float delay = 0.0005;
+
+
+    Vector2 center = { WIDTH/2.0f, HEIGHT/2.0f };
+    float radius = 400;
 
     while (!WindowShouldClose()) {
         BeginDrawing();
         {
             ClearBackground(BLACK);
-            DrawFPS(0, 0);
-            DrawText(std::format("particles: {}", particles.size()).c_str(), 0, 20, 20, WHITE);
+            // DrawFPS(0, 0);
+            // DrawText(std::format("particles: {}", particles.size()).c_str(), 0, 20, 20, WHITE);
 
-            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-                particles.push_back(Particle::random(GetMousePosition()));
+            if (GetTime() > fut) {
+                fut = GetTime() + delay;
 
-            if (IsKeyDown(KEY_J))
-                particles.push_back(Particle::random({ WIDTH/2.0f, HEIGHT/2.0f }));
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+                    particles.push_back(Particle::random(GetMousePosition()));
+
+                if (IsKeyDown(KEY_J))
+                    particles.push_back(Particle::random({ std::clamp(rng()*WIDTH, 100.0f, WIDTH-100.0f), HEIGHT/2.0f }));
+            }
+
 
             for (auto &p : particles) {
 
@@ -205,10 +243,13 @@ int main() {
                     p.apply_force(Direction::Down);
 
                 p.resolve_collisions_others(particles, GetFrameTime());
-                p.resolve_collisions_wall(GetFrameTime());
+                p.resolve_collisions_container(GetFrameTime(), center, radius);
+                // p.resolve_collisions_wall(GetFrameTime());
                 p.update(GetFrameTime());
                 p.draw();
             }
+
+            DrawCircleLinesV(center, radius, DARKGRAY);
 
         }
         EndDrawing();
