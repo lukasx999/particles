@@ -28,10 +28,10 @@ class Particle {
     Vector2 m_pos;
     Vector2 m_vel { 0, 0 };
     Vector2 m_acc { 0, 0 };
-    Vector2 m_gravity { 0, 1000 };
+    Vector2 m_gravity { 0, 10000 };
     const Color m_color;
     const float m_radius;
-    static constexpr float m_dampen_factor = 0.50;
+    static constexpr float m_dampen_factor = 0.90;
 
 public:
     Particle(Vector2 pos, Vector2 vel, Color color, float radius)
