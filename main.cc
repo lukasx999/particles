@@ -57,15 +57,16 @@ public:
         size_t idx = (fmod(GetTime(), 1)) * colors.size();
         float vel_mul = 0;
         Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
-        float max_rad = 10, min_rad = 10;
-        float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
+        // float max_rad = 10, min_rad = 10;
+        // float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
+        float rad = 20;
 
         return Particle(pos, vel, colors[idx], rad);
     }
 
     void update(float dt) {
         m_pos = Vector2Add(m_pos, Vector2Scale(m_vel, dt));
-        m_vel = Vector2Add(m_vel, Vector2Scale(m_acc, dt));
+        // m_vel = Vector2Add(m_vel, Vector2Scale(m_acc, dt));
         m_vel = Vector2Add(m_vel, Vector2Scale(m_gravity, dt));
     }
 
@@ -85,18 +86,20 @@ public:
 
     void resolve_collisions_others(std::span<Particle> others, float dt) {
 
+        Vector2 step = Vector2Scale(m_vel, dt);
+
         for (auto &other : others) {
             if (&other == this) return;
 
-            Vector2 step = { m_vel.x * dt, m_vel.y * dt };
-            float dist = Vector2Distance(Vector2Add(m_pos, step), other.m_pos);
-
             auto axis = Vector2Subtract(other.m_pos, m_pos);
             auto axis_norm = Vector2Normalize(axis);
+            auto other_step = Vector2Scale(other.m_vel, dt);
+            float dist = Vector2Length(axis);
 
             // DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
 
-            float diff = dist - m_radius - other.m_radius;
+            float steps = Vector2Length(step) + Vector2Length(other_step);
+            float diff = dist - steps - m_radius - other.m_radius;
             float delta = abs(diff) / 2.0f;
 
             if (diff < 0) {
@@ -108,8 +111,8 @@ public:
                 // m_vel *= -m_dampen_factor;
                 // other.m_vel *= -m_dampen_factor;
 
-                m_vel = Vector2Zero();
-                other.m_vel = Vector2Zero();
+                // m_vel = Vector2Zero();
+                // other.m_vel = Vector2Zero();
             }
 
         }
@@ -126,25 +129,21 @@ public:
 
         if (up + step.y < 0) {
             m_pos.y = m_radius;
-            // m_vel.y *= -m_dampen_factor;
             m_vel.y = 0;
         }
 
         if (down + step.y > 0) {
             m_pos.y = HEIGHT - m_radius;
-            // m_vel.y *= -m_dampen_factor;
             m_vel.y = 0;
         }
 
         if (left + step.x < 0) {
             m_pos.x = m_radius;
-            // m_vel.x *= -m_dampen_factor;
             m_vel.x = 0;
         }
 
         if (right + step.x > 0) {
             m_pos.x = WIDTH - m_radius;
-            // m_vel.x *= -m_dampen_factor;
             m_vel.x = 0;
         }
 
@@ -159,7 +158,6 @@ public:
 
         auto diff = Vector2Length(axis) + m_radius + step - radius;
         if (diff > 0) {
-            std::println("collision");
             m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Normalize((axis)), diff));
         }
 
@@ -195,7 +193,6 @@ int main() {
     // SetTargetFPS(180);
     InitWindow(WIDTH, HEIGHT, "particles");
 
-
     std::vector<Particle> particles;
 
     float vel = 500;
@@ -204,7 +201,7 @@ int main() {
     // particles.push_back(Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad));
 
     float fut = 0;
-    float delay = 0.0005;
+    float delay = 0.05;
 
 
     Vector2 center = { WIDTH/2.0f, HEIGHT/2.0f };
@@ -228,6 +225,7 @@ int main() {
             }
 
 
+            float dt = GetFrameTime();
             for (auto &p : particles) {
 
                 if (IsKeyDown(KEY_RIGHT))
@@ -242,10 +240,10 @@ int main() {
                 if (IsKeyDown(KEY_DOWN))
                     p.apply_force(Direction::Down);
 
-                p.resolve_collisions_others(particles, GetFrameTime());
-                p.resolve_collisions_container(GetFrameTime(), center, radius);
-                // p.resolve_collisions_wall(GetFrameTime());
-                p.update(GetFrameTime());
+                p.resolve_collisions_container(dt, center, radius);
+                // p.resolve_collisions_wall(dt);
+                p.resolve_collisions_others(particles, dt);
+                p.update(dt);
                 p.draw();
             }
 
