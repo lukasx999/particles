@@ -28,7 +28,7 @@ class Particle {
     Vector2 m_pos;
     Vector2 m_vel { 0, 0 };
     Vector2 m_acc { 0, 0 };
-    Vector2 m_gravity { 0, 10000 };
+    Vector2 m_gravity { 0, 1000 };
     const Color m_color;
     const float m_radius;
     static constexpr float m_dampen_factor = 0.50;
@@ -41,23 +41,18 @@ public:
         , m_radius(radius)
     { }
 
-    static Particle random() {
+    static Particle random(Vector2 pos) {
         std::array colors {
             LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON,
             GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET,
             DARKPURPLE, BEIGE, BROWN, DARKBROWN,
         };
-        size_t idx = rng() * colors.size();
+        // size_t idx = rng() * colors.size();
+        size_t idx = (fmod(GetTime(), 1)) * colors.size();
         float vel_mul = 0;
         Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
-        float max_rad = 5;
-        float min_rad = 5;
+        float max_rad = 20, min_rad = 20;
         float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
-
-        Vector2 pos = {
-            std::max(rad, rng()*WIDTH-rad),
-            std::max(rad, rng()*HEIGHT-rad),
-        };
 
         return Particle(pos, vel, colors[idx], rad);
     }
@@ -72,8 +67,6 @@ public:
 
     void draw() const {
         DrawCircleV(m_pos, m_radius, m_color);
-
-        DrawFPS(0, 0);
 
         #ifdef DEBUG
         float line_size = 3;
@@ -97,9 +90,7 @@ public:
             auto axis = Vector2Subtract(other.m_pos, m_pos);
             auto axis_norm = Vector2Normalize(axis);
 
-            #ifdef DEBUG
-            DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
-            #endif // DEBUG
+            // DrawLineEx(m_pos, Vector2Add(m_pos, axis), 1, DARKGRAY);
 
             float diff = dist - m_radius - other.m_radius;
             float delta = abs(diff) / 2.0f;
@@ -109,8 +100,9 @@ public:
                 m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Negate(axis_norm), delta));
                 other.m_pos = Vector2Add(other.m_pos, Vector2Scale(axis_norm, delta));
 
-                m_vel *= -m_dampen_factor;
-                other.m_vel *= -m_dampen_factor;
+                // TODO:
+                // m_vel *= -m_dampen_factor;
+                // other.m_vel *= -m_dampen_factor;
             }
 
         }
@@ -177,28 +169,26 @@ int main() {
     // SetTargetFPS(180);
     InitWindow(WIDTH, HEIGHT, "particles");
 
-    #if 0
-    float vel = 5000;
-    float rad = 150;
 
-    std::array particles {
-        Particle({ 300, HEIGHT/2.0f }, { vel, 0 }, RED, rad),
-        Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad),
-        // Particle({ 500, HEIGHT/2.0f-300 }, { vel, vel }, RED, rad),
-        // Particle({ WIDTH-100, HEIGHT/2.0f+500 }, { -vel, vel }, BLUE, rad),
-    };
-    #else
     std::vector<Particle> particles;
-    int n = 5000;
-    for (int i=0; i < n; ++i) {
-        particles.push_back(Particle::random());
-    }
-    #endif
+
+    float vel = 500;
+    float rad = 150;
+    particles.push_back(Particle({ 300, HEIGHT/2.0f }, { vel, 0 }, RED, rad));
+    particles.push_back(Particle({ WIDTH-100, HEIGHT/2.0f }, { -vel, 0 }, BLUE, rad));
 
     while (!WindowShouldClose()) {
         BeginDrawing();
         {
             ClearBackground(BLACK);
+            DrawFPS(0, 0);
+            DrawText(std::format("particles: {}", particles.size()).c_str(), 0, 20, 20, WHITE);
+
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+                particles.push_back(Particle::random(GetMousePosition()));
+
+            if (IsKeyDown(KEY_J))
+                particles.push_back(Particle::random({ WIDTH/2.0f, HEIGHT/2.0f }));
 
             for (auto &p : particles) {
 
@@ -213,9 +203,6 @@ int main() {
 
                 if (IsKeyDown(KEY_DOWN))
                     p.apply_force(Direction::Down);
-
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-                    p.apply_force_absolute(GetMousePosition());
 
                 p.resolve_collisions_others(particles, GetFrameTime());
                 p.resolve_collisions_wall(GetFrameTime());
