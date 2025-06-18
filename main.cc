@@ -50,8 +50,8 @@ public:
         size_t idx = rng() * colors.size();
         float vel_mul = 0;
         Vector2 vel = { rng()*vel_mul, rng()*vel_mul };
-        float max_rad = 10;
-        float min_rad = 10;
+        float max_rad = 5;
+        float min_rad = 5;
         float rad = std::clamp(rng()*max_rad, min_rad, max_rad);
 
         Vector2 pos = {
@@ -189,7 +189,7 @@ int main() {
     };
     #else
     std::vector<Particle> particles;
-    int n = 1000;
+    int n = 5000;
     for (int i=0; i < n; ++i) {
         particles.push_back(Particle::random());
     }
