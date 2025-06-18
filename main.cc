@@ -107,7 +107,8 @@ public:
                 m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Negate(axis_norm), delta));
                 other.m_pos = Vector2Add(other.m_pos, Vector2Scale(axis_norm, delta));
 
-                // TODO:
+                // BUG: oscillation between particles
+
                 // m_vel *= -m_dampen_factor;
                 // other.m_vel *= -m_dampen_factor;
 
