@@ -1,7 +1,3 @@
 # Particle Simulation
 
-![](./image1.png)
-![](./image2.png)
-![](./image3.png)
-![](./image4.png)
-![](./image5.png)
+<img src="./image1.png" width="300" height="300">
