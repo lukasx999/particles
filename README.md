@@ -1,3 +1,3 @@
 # Particle Simulation
 
-![1](./image1.png)
+![](./image1.png)
