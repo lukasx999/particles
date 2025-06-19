@@ -27,10 +27,9 @@ class Particle {
     Vector2 m_pos;
     Vector2 m_vel { 0, 0 };
     Vector2 m_acc { 0, 0 };
-    Vector2 m_gravity { 0, 10000 };
+    Vector2 m_gravity { 0, 1000 };
     const Color m_color;
     const float m_radius;
-    static constexpr float m_dampen_factor = 0.90;
 
 public:
     Particle(Vector2 pos, Vector2 vel, Color color, float radius)
@@ -106,14 +105,6 @@ public:
                 // move the particle away along the negative collision axis
                 m_pos = Vector2Add(m_pos, Vector2Scale(Vector2Negate(axis_norm), delta));
                 other.m_pos = Vector2Add(other.m_pos, Vector2Scale(axis_norm, delta));
-
-                // BUG: oscillation between particles
-
-                // m_vel *= -m_dampen_factor;
-                // other.m_vel *= -m_dampen_factor;
-
-                // m_vel = Vector2Zero();
-                // other.m_vel = Vector2Zero();
             }
 
         }
@@ -225,26 +216,19 @@ int main() {
                     particles.push_back(Particle::random({ std::clamp(rng()*WIDTH, 100.0f, WIDTH-100.0f), HEIGHT/2.0f }));
             }
 
-
             float dt = GetFrameTime();
+            int sub_steps = 20;
+            float sub_dt = dt / sub_steps;
+
+            for (int i=0; i < sub_steps; ++i) {
+                for (auto &p : particles) {
+                    p.resolve_collisions_others(particles, sub_dt);
+                    p.resolve_collisions_container(sub_dt, center, radius);
+                    p.update(sub_dt);
+                }
+            }
+
             for (auto &p : particles) {
-
-                if (IsKeyDown(KEY_RIGHT))
-                    p.apply_force(Direction::Right);
-
-                if (IsKeyDown(KEY_LEFT))
-                    p.apply_force(Direction::Left);
-
-                if (IsKeyDown(KEY_UP))
-                    p.apply_force(Direction::Up);
-
-                if (IsKeyDown(KEY_DOWN))
-                    p.apply_force(Direction::Down);
-
-                p.resolve_collisions_container(dt, center, radius);
-                // p.resolve_collisions_wall(dt);
-                p.resolve_collisions_others(particles, dt);
-                p.update(dt);
                 p.draw();
             }
 
